@@ -1,4 +1,75 @@
-try {
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contador de Calorias IA</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f4f4f9; }
+        video, canvas { max-width: 100%; border-radius: 8px; margin-bottom: 10px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #28a745; color: white; border: none; border-radius: 5px; margin: 5px; }
+        button:disabled { background-color: #ccc; }
+        .dashboard { background: white; padding: 20px; border-radius: 8px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1 { color: #333; }
+        #total-diaria { font-size: 24px; font-weight: bold; color: #dc3545; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard">
+        <h2>Total Diário</h2>
+        <div id="total-diaria">Carregando...</div>
+        <p>Kcal</p>
+    </div>
+
+    <div>
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+    </div>
+    
+    <button id="btn-capturar">Fotografar e Analisar Comida</button>
+    <p id="status"></p>
+
+    <script>
+        // CONFIGURAÇÕES
+        const GEMINI_API_KEY = "AIzaSyClNKNGr5c61FbwkLzJoKFlXks4HeR1itw";
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby0d3D6R32e5f7zLQFySK1QXfyEgTSC0tAXBbcP-EfMtnjEsIkNyBiE7Jildf4cAJkb/exec";
+
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const btnCapturar = document.getElementById('btn-capturar');
+        const statusMsg = document.getElementById('status');
+        const totalDiariaEl = document.getElementById('total-diaria');
+
+        // Inicializa a câmera
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+            .then(stream => { video.srcObject = stream; })
+            .catch(err => { statusMsg.innerText = "Erro ao acessar a câmera: " + err; });
+
+        // Busca o total diário ao abrir a página
+        function atualizarTotalDiario() {
+            fetch(APPS_SCRIPT_URL)
+                .then(response => response.text())
+                .then(total => { totalDiariaEl.innerText = total || "0"; })
+                .catch(err => console.error("Erro ao buscar total:", err));
+        }
+        
+        atualizarTotalDiario();
+
+        // Evento de clique para tirar foto e analisar
+        btnCapturar.addEventListener('click', async () => {
+            btnCapturar.disabled = true;
+            statusMsg.innerText = "Analisando a imagem com o Gemini...";
+
+            // Captura a imagem do vídeo para o canvas
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // Converte a imagem para Base64 (removendo o cabeçalho 'data:image/jpeg;base64,')
+            const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
+
+            try {
                 // 1. Enviar para a API do Gemini
                 const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
                 
@@ -35,7 +106,7 @@ try {
 
                 if (isNaN(caloriasEstimadas)) throw new Error(`A IA não retornou um número válido. Resposta: ${textoResposta}`);
 
-                statusMsg.innerText = `Identificado: ${caloriasEstimadas} kcal. A guardar na planilha...`;
+                statusMsg.innerText = `Identificado: ${caloriasEstimadas} kcal. Salvando na planilha...`;
 
                 // 2. Enviar as calorias para o Google Sheets via Apps Script
                 await fetch(APPS_SCRIPT_URL, {
@@ -54,3 +125,7 @@ try {
             } finally {
                 btnCapturar.disabled = false;
             }
+        });
+    </script>
+</body>
+</html>
